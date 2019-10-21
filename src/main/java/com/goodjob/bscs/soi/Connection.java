@@ -1,5 +1,8 @@
 package com.goodjob.bscs.soi;
 
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Iterator;
 
@@ -12,6 +15,10 @@ import com.lhs.ccb.soi.ErrorInfoI;
 import com.lhs.ccb.soi.SecurityExceptionI;
 import com.lhs.ccb.soi.ServiceObjectI;
 import com.lhs.ccb.soi.UnknownCommandExceptionI;
+import com.lhs.ccb.soi.types.DateI;
+import com.lhs.ccb.soi.types.DateIHelper;
+import com.lhs.ccb.soi.types.DateTimeI;
+import com.lhs.ccb.soi.types.DateTimeIHelper;
 import com.lhs.ccb.soi.types.NvElementI;
 import com.lhs.ccb.soi.types.NvElementListListIHelper;
 
@@ -29,8 +36,10 @@ public class Connection {
 	public HashMap<String, Object> executeSoiCommand(String commandName, HashMap input) throws Exception {
 		HashMap<String, Object> output = new HashMap<>();
 		NvElementI[] result = null;
-
-		result = execute(commandName, null);
+		NvElementI[] commandInput = null;
+		if(input != null)
+			commandInput = convertHashMapToNvElementArr(input);
+		result = execute(commandName, commandInput);
 
 		return convertnvElementToHashMap(result);
 	}
@@ -66,6 +75,8 @@ public class Connection {
 
 		return result;
 	}
+	
+	
 
 	/**
 	 * 
@@ -102,7 +113,7 @@ public class Connection {
 		return buf.toString();
 	}
 
-	protected void executeSessionChange(String pBuDesc) throws Exception {
+	public void executeSessionChange(String pBuDesc) throws Exception {
 		// BU_ID_PUB parameter
 		org.omg.CORBA.Any any = _orb.create_any();
 		any.insert_wstring("BU_ID_PUB");
@@ -153,10 +164,27 @@ public class Connection {
 		HashMap<String, Object> output = new HashMap<>();
 
 		for (int i = 0; i < input.length; i++) {
+			
 			NvElementI nvElement = input[i];
+		   
 			Any value = nvElement.value;
+			
+			if (value.type().kind().value() == TCKind._tk_struct) {
+				if(value.type().equal(DateTimeIHelper.type())) {
+					DateTimeI dateTimeI = DateTimeIHelper.extract(value);
+					Calendar cal = new GregorianCalendar();
+					cal.setTimeInMillis(dateTimeI.time);
+					Date date = cal.getTime();
+					output.put(nvElement.name, date);
+				}
+				if(value.type().equal(DateIHelper.type())) {
+					DateI dateI = DateIHelper.extract(value);
+					Date date = new GregorianCalendar(dateI.year, dateI.month, dateI.year).getTime();
+					output.put(nvElement.name, date);
+				}
+			}
 
-			if (value.type().kind().value() == TCKind._tk_alias) {
+			else if (value.type().kind().value() == TCKind._tk_alias) {
 				
 				// a list is a CORBA type NvElementListListI
 				if (value.type().equal(NvElementListListIHelper.type())) {
@@ -169,14 +197,7 @@ public class Connection {
 						for (int j = 0; j < listListNvElement.length; j++) {
 							
 							NvElementI[] nvElements = listListNvElement[j];
-							HashMap<String, Object> listElement = new HashMap<>();
-							
-							for (int k = 0; k < nvElements.length; k++) {
-								
-								Any any = nvElements[k].value;
-								listElement.put(nvElements[k].name, retrieveValueFromAnyForPrimitive(any));
-							}
-							list[j] = listElement;
+							list[j] = convertnvElementToHashMap(listListNvElement[j]);
 						}
 						output.put(nvElement.name, list);
 					}
@@ -191,22 +212,46 @@ public class Connection {
 		return output;
 	}
 	
-//	public NvElementI[] convertHashMapToNvElementArr(HashMap<String, Object> input) {
-//		
-//		NvElementI[] output = new NvElementI[input.size()];
-//		
-//		Iterator iter = input.keySet().iterator();
-//		
-//		while(iter.hasNext()) {
-//			String key = (String) iter.next();
-//			Object value = input.get(key);
-//			if(value instanceof HashMap[]) {
-//				NvElementI[][] list = new NvElementI[][];
-//			}
-//		}
-//		
-//		return output;
-//		
-//	}
+	public NvElementI[] convertHashMapToNvElementArr(HashMap<String, Object> input) {
+		
+		NvElementI[] output = new NvElementI[input.size()];
+		
+		Iterator<String> iter = input.keySet().iterator();
+		int i=0;
+		while(iter.hasNext()) {
+			String key = (String) iter.next();
+			Object value = input.get(key);
+			org.omg.CORBA.Any any = _orb.create_any();
+			insertValueInAny(value, any);
+			NvElementI namedValue = new com.lhs.ccb.soi.types.NvElementI(key, any, 0,  (short)0);
+			output[i] = namedValue;
+			i++;
+		}
+		
+		return output;
+		
+	}
+	
+	
+	public void insertValueInAny(Object value, Any any) {
+
+		if (value instanceof String)
+			any.insert_wstring((String) value);
+		
+		if (value instanceof Boolean)
+			any.insert_boolean((Boolean) value);
+
+		if (value instanceof Integer)
+			any.insert_long((Integer) value);
+
+		if (value instanceof Long)
+			any.insert_longlong((Long) value);
+
+		if (value instanceof Character)
+			any.insert_wchar((Character) value);
+		
+		if (value instanceof Double)
+			any.insert_double((Double) value);
+	}
 
 }
