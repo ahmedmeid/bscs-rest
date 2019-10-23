@@ -1,0 +1,10 @@
+com\goodjob\bscs\Application.class
+com\goodjob\bscs\soi\ConnectionPoolManager.class
+com\goodjob\bscs\beans\Language.class
+com\goodjob\bscs\rest\LanguagesController.class
+com\goodjob\bscs\beans\LanguagesReadDTO.class
+com\goodjob\bscs\beans\CustomersSearchDTO.class
+com\goodjob\bscs\beans\CustomersSearchResult.class
+com\goodjob\bscs\rest\CustomersController.class
+com\goodjob\bscs\beans\CustomersSearchCriteria.class
+com\goodjob\bscs\soi\Connection.class

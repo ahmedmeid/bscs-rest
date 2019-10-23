@@ -1,19 +1,25 @@
 package com.goodjob.bscs.soi;
 
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 
 import org.omg.CORBA.Any;
 import org.omg.CORBA.ORB;
 import org.omg.CORBA.TCKind;
 
+import com.google.gson.annotations.SerializedName;
 import com.lhs.ccb.soi.ComponentExceptionI;
 import com.lhs.ccb.soi.ErrorInfoI;
 import com.lhs.ccb.soi.SecurityExceptionI;
 import com.lhs.ccb.soi.ServiceObjectI;
+import com.lhs.ccb.soi.SystemExceptionI;
 import com.lhs.ccb.soi.UnknownCommandExceptionI;
 import com.lhs.ccb.soi.types.DateI;
 import com.lhs.ccb.soi.types.DateIHelper;
@@ -34,11 +40,22 @@ public class Connection {
 	}
 
 	public HashMap<String, Object> executeSoiCommand(String commandName, HashMap input) throws Exception {
-		HashMap<String, Object> output = new HashMap<>();
 		NvElementI[] result = null;
 		NvElementI[] commandInput = null;
-		if(input != null)
+		if(input != null) {
 			commandInput = convertHashMapToNvElementArr(input);
+		}
+		result = execute(commandName, commandInput);
+
+		return convertnvElementToHashMap(result);
+	}
+	
+	public HashMap<String, Object> executeSoiCommand(String commandName, Object input) throws Exception {
+		NvElementI[] result = null;
+		NvElementI[] commandInput = null;
+		if(input != null) {
+			commandInput = convertObjectToNvElementArr(input);
+		}
 		result = execute(commandName, commandInput);
 
 		return convertnvElementToHashMap(result);
@@ -232,26 +249,62 @@ public class Connection {
 		
 	}
 	
+	public NvElementI[] convertObjectToNvElementArr(Object obj)
+			throws IllegalArgumentException, IllegalAccessException {
+		Field[] fields = obj.getClass().getDeclaredFields();
+		List<NvElementI> output = new ArrayList<>();
+		for (Field field : fields) {
+			field.setAccessible(true);
+			Object value = field.get(obj);
+			if (value != null) {
+				SerializedName annotation = field.getAnnotation(SerializedName.class);			
+				org.omg.CORBA.Any any = _orb.create_any();
+				insertValueInAny(value, any);
+				NvElementI namedValue = new com.lhs.ccb.soi.types.NvElementI(annotation.value(), any, 0, (short) 0);
+				output.add(namedValue);
+			}
+		}
+		return output.toArray(new NvElementI[output.size()]);
+	}
+	
 	
 	public void insertValueInAny(Object value, Any any) {
 
-		if (value instanceof String)
+		if (value instanceof String) {
 			any.insert_wstring((String) value);
-		
-		if (value instanceof Boolean)
+		}
+
+		if (value instanceof Boolean) {
 			any.insert_boolean((Boolean) value);
+		}
 
-		if (value instanceof Integer)
+		if (value instanceof Integer) {
 			any.insert_long((Integer) value);
+		}
 
-		if (value instanceof Long)
+		if (value instanceof Long) {
 			any.insert_longlong((Long) value);
+		}
 
-		if (value instanceof Character)
+		if (value instanceof Character) {
 			any.insert_wchar((Character) value);
-		
-		if (value instanceof Double)
+		}
+
+		if (value instanceof Double) {
 			any.insert_double((Double) value);
+		}
 	}
 
+	public void commit() throws Exception {
+		if (_serviceObject != null) {
+			try {
+				_serviceObject.commitI();
+			} catch (SystemExceptionI e) {
+				throw new Exception(e.getMessage());
+			} catch (ComponentExceptionI e) {
+				throw new Exception("ComponentExceptionI: "
+						+ this.convertErrorInfoToString(e.errorInformation));
+			}
+		}
+	}
 }
