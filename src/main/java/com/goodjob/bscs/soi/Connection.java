@@ -14,6 +14,7 @@ import org.omg.CORBA.Any;
 import org.omg.CORBA.ORB;
 import org.omg.CORBA.TCKind;
 
+import com.goodjob.bscs.beans.Money;
 import com.google.gson.annotations.SerializedName;
 import com.lhs.ccb.soi.ComponentExceptionI;
 import com.lhs.ccb.soi.ErrorInfoI;
@@ -25,6 +26,8 @@ import com.lhs.ccb.soi.types.DateI;
 import com.lhs.ccb.soi.types.DateIHelper;
 import com.lhs.ccb.soi.types.DateTimeI;
 import com.lhs.ccb.soi.types.DateTimeIHelper;
+import com.lhs.ccb.soi.types.MoneyI;
+import com.lhs.ccb.soi.types.MoneyIHelper;
 import com.lhs.ccb.soi.types.NvElementI;
 import com.lhs.ccb.soi.types.NvElementListListIHelper;
 
@@ -198,6 +201,11 @@ public class Connection {
 					DateI dateI = DateIHelper.extract(value);
 					Date date = new GregorianCalendar(dateI.year, dateI.month, dateI.year).getTime();
 					output.put(nvElement.name, date);
+				}
+				if(value.type().equal(MoneyIHelper.type())){
+					MoneyI moneyI = MoneyIHelper.extract(value);
+					Money money = new Money(moneyI.currency, moneyI.amount);
+					output.put(nvElement.name, money);
 				}
 			}
 
